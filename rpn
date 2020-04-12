@@ -80,6 +80,9 @@ my %operation;
 my %help;
 
 
+  ####
+    # Front END init callback
+
 sub init
 {
 	$stack = RPN::Stack->init;
@@ -107,7 +110,7 @@ sub init
 		'&'   => sub { if ($stack->has(2)) { $stack->push($stack->pop &  $stack->pop) } },
 		'|'   => sub { if ($stack->has(2)) { $stack->push($stack->pop |  $stack->pop) } },
 		'<<'  => sub { if ($stack->has(2)) { $stack->push($stack->pop << $stack->pop) } },
-		'>>'  => sub { if ($stack->has(2)) { $stack->push($stack->pop >> $stack->pop) } },
+		'>>'  => sub { if ($stack->has(2)) { $stack->push($stack->pop >> $stack->pop) } }, # vvv safe boolean ops
 		'&&'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a && $b)) } },
 		'||'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a || $b)) } },
 		# unary
