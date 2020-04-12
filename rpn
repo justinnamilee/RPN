@@ -1,0 +1,343 @@
+#!/usr/bin/perl
+
+# By: Justin Lee
+# Date: QUANRANTINE 2020
+#
+# Description:
+#   Yo dawg, this is an RPN calculator.
+#   It does that kind of thing, you
+#   know?
+
+
+use strict;
+
+# init the RPN calculator
+RPN::init();
+
+# parse the input
+foreach my $input (@ARGV)
+{
+	my @command = ();
+
+	# if we're given files stack their input onto the queue
+	if (-f $input)
+	{
+		if (open(my $fh, q[<], $input))
+		{
+			while (<$fh>)
+			{
+				chomp;
+				s/^\s+//;
+				s/\s+$//;
+				s/#.*//;
+				next unless length;
+
+				push @command, $_;
+			}
+		}
+		else
+		{
+			warn q[Skipping file '$input': $!];
+			next; # skipperoo
+		}
+	}
+	else
+	{
+		$command[0] = $input;
+	}
+
+	# parse commands
+	foreach my $command (@command)
+	{
+		RPN::parse($command);
+		RPN::execute();
+	}
+}
+
+
+exit 0;
+
+
+
+###
+# sub-packages
+
+package RPN; # objectify me, daddi
+
+use strict;
+
+
+sub FALSE() { 0 }
+sub TRUE()  { 1 }
+
+sub bool2num(_)  { shift() ? TRUE : FALSE }
+sub force2num(_) { 0 + shift }
+
+my $stack;
+my $command;
+my $register;
+my %operation;
+my %help;
+
+
+sub init
+{
+	$stack = RPN::Stack->init;
+	$command = undef;
+	$register = RPN::Register->init;
+	%operation =
+	(
+		# tests
+		'=='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) == $stack->getr(2)) ? TRUE : FALSE) } },
+		'!='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) == $stack->getr(2)) ? FALSE : TRUE) } }, # lol
+		'<'   => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1)  < $stack->getr(2)) ? TRUE : FALSE) } },
+		'>'   => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1)  > $stack->getr(2)) ? TRUE : FALSE) } },
+		'<='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) <= $stack->getr(2)) ? TRUE : FALSE) } },
+		'>='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) >= $stack->getr(2)) ? TRUE : FALSE) } },
+		# ternary ops
+		'?'   => sub { if ($stack->has(3)) { if ($stack->pop) { my $k = $stack->pop; $stack->setr(1, $k) } else { $stack->pop } } },
+		# binary ops
+		'+'   => sub { if ($stack->has(2)) { $stack->push($stack->pop +  $stack->pop) } }, 
+		'/'   => sub { if ($stack->has(2)) { $stack->push($stack->pop /  $stack->pop) } },
+		'*'   => sub { if ($stack->has(2)) { $stack->push($stack->pop *  $stack->pop) } },
+		'-'   => sub { if ($stack->has(2)) { $stack->push($stack->pop -  $stack->pop) } },
+		'%'   => sub { if ($stack->has(2)) { $stack->push($stack->pop %  $stack->pop) } },
+		'**'  => sub { if ($stack->has(2)) { $stack->push($stack->pop ** $stack->pop) } },
+		'^'   => sub { if ($stack->has(2)) { $stack->push($stack->pop ^  $stack->pop) } },
+		'&'   => sub { if ($stack->has(2)) { $stack->push($stack->pop &  $stack->pop) } },
+		'|'   => sub { if ($stack->has(2)) { $stack->push($stack->pop |  $stack->pop) } },
+		'<<'  => sub { if ($stack->has(2)) { $stack->push($stack->pop << $stack->pop) } },
+		'>>'  => sub { if ($stack->has(2)) { $stack->push($stack->pop >> $stack->pop) } },
+		'&&'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a && $b)) } },
+		'||'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a || $b)) } },
+		# unary
+		'++'  => sub { if ($stack->has(1)) { $stack->push($stack->pop + 1) } },
+		'--'  => sub { if ($stack->has(1)) { $stack->push($stack->pop - 1) } },
+		# functions
+		pop   => sub { if ($stack->has(1)) { $stack->pop } },
+		peek  => sub { if ($stack->has(1)) { print q[peek> ]. $stack->getr(1) .qq[\n] } },
+		stack => sub { print q[stack#> ]. $stack->size .qq[\n] },
+		dump  => sub { my $n = $stack->size; foreach my $s (reverse $stack->dump) { $n--; print qq[stack$n> $s\n]; } },
+		flush => sub { $stack->flush }, # toss it all
+		empty => sub { $stack->empty },
+		load  => sub { $register->loads },
+		step  => sub { $register->step },
+		noop  => undef
+	);
+	%help =
+	(
+		'=='  => q[Test equality, push result to stack],
+		'!='  => q[Test inequality, push result to stack],
+		'<'   => q[Test less-than, push result to stack],
+		'>'   => q[Test greater-than, push result to stack],
+		'<='  => q[Test less-than-equals, push result to stack],
+		'>='  => q[Test greater-than-equals, push result to stack],
+		'?'   => q[Pop three stack items, push (FIRST ? SECOND : THIRD) to stack],
+		'+'   => q[Pop two stack items, add them, push result to stack],
+		'/'   => q[Pop two stack items, divide them, push the result to stack],
+		'*'   => q[Pop two stack items, multiply them, push the result to stack],
+		'-'   => q[Pop two stack items, subtract them, push the result to stack],
+		'%'   => q[Pop two stack items, compute FIRST % SECOND, push the result to the stack],
+		'**'  => q[Pop two stack items, exponentiate them, push the result to the stack],
+		'^'   => q[Pop two stack items, bitwise-xor them, push the result to the stack],
+		'&'   => q[Pop two stack items, bitwise-and them, push the result to the stack],
+		'|'   => q[Pop two stack items, bitwise-or them, push the result to the stack],
+		'<<'  => q[Pop two stack items, bitwise-shift them left, push the result to the stack],
+		'>>'  => q[Pop two stack items, bitwise-shift them right, push the result to the stack],
+		'&&'  => q[Pop two stack items, logical-and them, push the result to the stack],
+		'||'  => q[Pop two stack items, locical-or them, push the result to the stack],
+		'++'  => q[Increment value on top of the stack],
+		'--'  => q[Decrement value on top of the stack],
+		pop   => q[Pop the stack],
+		peek  => q[Peek at the top of the stack],
+		stack => q[Show stack information],
+		dump  => q[Dump the stack],
+		flush => q[Flush the stack completely],
+		empty => q[Test if the stack is empty, push the result to stack],
+		load  => q[Pop the stack into the instruction register],
+		step  => q[Step the register machine],
+		noop  => q[NOOOOOOP]
+	);
+}
+
+sub parse
+{
+	$command = shift;
+
+	if ($command =~ /^(?:\+|-)?(?:0[xXbB])?\d+(?:\.\d+)?(?:e\d+)?$/)
+	{
+		# push numbers onto the stack
+		$stack->push(force2num($command));
+	}
+	elsif (exists($operation{$command}))
+	{
+		# grab commands if we have them
+		$command = $operation{$command};
+	}
+	elsif ($command =~ /^help:(.+)/i)
+	{
+		$command = lc($1);
+
+		if ($command eq q[list])
+		{
+			print q[list> ]. join(q[, ], keys(%operation)) .qq[\n];
+		}
+		elsif (exists($help{$command}))
+		{
+			print qq[help[$command]> $help{$command}\n];
+		}
+		else
+		{
+			warn RPN::Error::INPUT_UNKNOWN_CMD();
+		}
+	}
+	elsif ($command =~ /^help/i)
+	{
+		print qq[help>\n];
+		print qq[\t   Get a listing: help:list\n];
+		print qq[\tGet command help: help:<command>\n];
+	}
+	else
+	{
+		warn RPN::Error::INPUT_UNKNOWN_CMD();
+	}
+
+	undef($command) unless (ref($command));
+}
+
+sub execute
+{
+	$command->(@_) if (defined($command))
+}
+
+sub stack
+{
+	return ($stack); # hacky
+}
+
+
+
+package RPN::Stack;
+
+use strict;
+
+# get an object
+sub init
+{
+	my @s = ();
+	return (bless \@s);
+}
+
+# methods, written in perl shorthand
+sub dump  { @{shift()} }
+sub flush { @{shift()} = () }
+sub size  { int @{shift()} }
+sub empty { not shift->size }
+sub push  { push @{shift()}, @_ }
+sub pop   { pop @{shift()} }
+sub set   { shift->[shift] = shift } # don't use these two
+sub get   { shift->[shift] }
+sub setr  { shift->set(0 - shift, shift) } # these two index from the end to the start
+sub getr  { shift->get(0 - shift) } # they are the "real" way to access da stack, bruh
+
+sub has
+{
+	my $s = shift->size >= shift;
+	warn RPN::Error::STACK_EMPTY() unless $s;
+	return ($s);
+}
+
+
+
+package RPN::Register;
+
+use strict;
+
+sub hexify($)  { sprintf(q[0x%016X], shift) }
+sub hex2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
+
+sub HIGH32($) { (0xFFFFFFFF00000000 & shift) >> 32 }
+sub LOW32($)  { 0x00000000FFFFFFFF & shift }
+sub HIGH16($) { (0xFFFF0000 & shift) >> 16 }
+sub LOW16($)  { 0x0000FFFF & shift }
+sub HIGH8($)  { 0xFF00 & shift }
+sub LOW8($)   { (0x00FF & shift) >> 8 }
+
+my %opcode;
+
+sub init
+{
+	%opcode =
+	(
+		# low ops (debug, testing, etc)
+		hexify(0x00) => sub { }, # noop
+		hexify(0x01) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
+		hexify(0x02) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
+		hexify(0x03) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
+		hexify(0x04) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+		# stack ops
+		hexify(0x10) => sub { my $s = shift; $s->memory->{hexify($s->data)} = RPN->stack->pop }, # sts
+		hexify(0x11) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->data)}) }, # lds
+		# register ops
+		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
+		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+	);
+
+	my %self =
+	(
+		register => {},
+		memory   => {},
+	);
+
+	$self{register}->{INSR} = undef;
+	$self{register}->{PC} = 0; # program counter
+
+	return (bless \%self);
+}
+
+# methods
+sub loads { shift->register->{INSR} = RPN->stack->pop } # <- from stack, vvv from memory w/ PC++
+sub loadm { my $s = shift; $s->register->{INSR} = $s->memory->{hexify($s->register->{PC}++)} }
+
+sub step
+{
+	my $self = shift;
+
+	if (defined($self->register->{INSR}))
+	{
+		my $cmd = $self->command;
+
+		if (exists($opcode{$cmd}))
+		{
+			print qq[DEBUG($cmd): ]. $opcode{$cmd}->($self) .qq[\n];
+		}
+	}
+	else
+	{
+		warn RPN::Error::POSSIBLE_BUFFER_OVERFLOW();
+	}
+}
+
+# fetchers
+sub register    { shift->{register} }
+sub memory      { shift->{memory} }
+sub instruction { hexify(shift->register->{INSR}) }
+sub command     { hexify(LOW32(shift->instruction)) }
+sub data        { hexify(HIGH32(shift->instruction)) }
+sub counter     { hexify(shift->register->{PC}) }
+
+
+
+package RPN::Error;
+
+use strict;
+
+sub STACK_EMPTY()
+{ q[Stack is empty, what are you doing] }
+sub INPUT_UNKNOWN_CMD()
+{ q[Unknown operation found while parsing input, what are you doing] }
+sub POSSIBLE_BUFFER_OVERFLOW()
+{ q[Hit unintialized memory, what are you doing] }
+
+
+__END__
