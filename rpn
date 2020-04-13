@@ -281,6 +281,10 @@ sub init
 		# stack ops
 		hexify(0x10) => sub { my $s = shift; $s->memory->{hexify($s->data)} = RPN->stack->pop }, # sts
 		hexify(0x11) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->data)}) }, # lds
+		hexify(0x12) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = RPN->stack->pop }, # stsi
+		hexify(0x13) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
+		hexify(0x14) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = RPN->stack->pop }, # stsd
+		hexify(0x15) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
 		# register ops
 		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
 		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
