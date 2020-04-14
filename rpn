@@ -122,7 +122,7 @@ sub init
 		stack => sub { print q[stack#> ]. $stack->size .qq[\n] },
 		dump  => sub { my $n = $stack->size; foreach my $s (reverse $stack->dump) { $n--; print qq[stack$n> $s\n]; } },
 		flush => sub { $stack->flush }, # toss it all
-		empty => sub { $stack->empty },
+		empty => sub { $stack->push($stack->empty) },
 		load  => sub { $register->loads },
 		step  => sub { $register->step },
 		noop  => undef
@@ -288,6 +288,8 @@ sub init
 		# register ops
 		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
 		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+		# b-b-b-b-b-b-branch
+		hexify(0x30) => sub { my $s = shift; $s->register->{PC} = $s->data } # br
 	);
 
 	my %self =
