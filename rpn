@@ -12,7 +12,7 @@
 use strict;
 
 # init the RPN calculator
-RPN::init();
+RPN->prime;
 
 # parse the input
 foreach my $input (@ARGV)
@@ -37,7 +37,7 @@ foreach my $input (@ARGV)
 		}
 		else
 		{
-			warn q[Skipping file '$input': $!];
+			warn qq[Skipping file '$input': $!];
 			next; # skipperoo
 		}
 	}
@@ -49,8 +49,7 @@ foreach my $input (@ARGV)
 	# parse commands
 	foreach my $command (@command)
 	{
-		RPN::parse($command);
-		RPN::execute();
+		RPN::execute($command);
 	}
 }
 
@@ -59,13 +58,19 @@ exit 0;
 
 
 
-###
-# sub-packages
+################
+# SUB PACKAGES #
+################ objectify me, daddi
 
-package RPN; # objectify me, daddi
+
+  ######
+  #   RPN
+   #    The main calculation interface and CPU
+   #    control interface, etc.
+
+package RPN;
 
 use strict;
-
 
 sub FALSE() { 0 }
 sub TRUE()  { 1 }
@@ -79,26 +84,23 @@ my $register;
 my %operation;
 my %help;
 
-
-  ####
-    # Front END init callback
-
-sub init
+sub prime
 {
-	$stack = RPN::Stack->init;
-	$command = undef;
-	$register = RPN::Register->init;
+	RPN::Register->prime; # get er' nice and ready
+	$register = RPN::Register->init; # control unit
+	$stack = $register->frame->top; # calculator stack is always top frame
+
 	%operation =
 	(
 		# tests
-		'=='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) == $stack->getr(2)) ? TRUE : FALSE) } },
-		'!='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) == $stack->getr(2)) ? FALSE : TRUE) } }, # lol
-		'<'   => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1)  < $stack->getr(2)) ? TRUE : FALSE) } },
-		'>'   => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1)  > $stack->getr(2)) ? TRUE : FALSE) } },
-		'<='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) <= $stack->getr(2)) ? TRUE : FALSE) } },
-		'>='  => sub { if ($stack->has(2)) { $stack->push(($stack->getr(1) >= $stack->getr(2)) ? TRUE : FALSE) } },
+		'=='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? TRUE : FALSE) } },
+		'!='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? FALSE : TRUE) } }, # lol
+		'<'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  < $stack->get(2)) ? TRUE : FALSE) } },
+		'>'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  > $stack->get(2)) ? TRUE : FALSE) } },
+		'<='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) <= $stack->get(2)) ? TRUE : FALSE) } },
+		'>='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) >= $stack->get(2)) ? TRUE : FALSE) } },
 		# ternary ops
-		'?'   => sub { if ($stack->has(3)) { if ($stack->pop) { my $k = $stack->pop; $stack->setr(1, $k) } else { $stack->pop } } },
+		'?'   => sub { if ($stack->has(3)) { if ($stack->pop) { my $k = $stack->pop; $stack->set(1, $k) } else { $stack->pop } } },
 		# binary ops
 		'+'   => sub { if ($stack->has(2)) { $stack->push($stack->pop +  $stack->pop) } }, 
 		'/'   => sub { if ($stack->has(2)) { $stack->push($stack->pop /  $stack->pop) } },
@@ -118,12 +120,13 @@ sub init
 		'--'  => sub { if ($stack->has(1)) { $stack->push($stack->pop - 1) } },
 		# functions
 		pop   => sub { if ($stack->has(1)) { $stack->pop } },
-		peek  => sub { if ($stack->has(1)) { print q[peek> ]. $stack->getr(1) .qq[\n] } },
+		peek  => sub { if ($stack->has(1)) { print q[peek> ]. $stack->get(1) .qq[\n] } },
 		stack => sub { print q[stack#> ]. $stack->size .qq[\n] },
 		dump  => sub { my $n = $stack->size; foreach my $s (reverse $stack->dump) { $n--; print qq[stack$n> $s\n]; } },
 		flush => sub { $stack->flush }, # toss it all
 		empty => sub { $stack->push($stack->empty) },
-		load  => sub { $register->loads },
+		load  => sub { $register->load },
+		lall  => sub { $register->load while $stack->has(1) },
 		step  => sub { $register->step },
 		noop  => undef
 	);
@@ -157,13 +160,14 @@ sub init
 		dump  => q[Dump the stack],
 		flush => q[Flush the stack completely],
 		empty => q[Test if the stack is empty, push the result to stack],
-		load  => q[Pop the stack into the instruction register],
+		load  => q[Pop the stack into the next memory location],
+		lall  => q[Pop the stack into the next memory location until empty],
 		step  => q[Step the register machine],
 		noop  => q[NOOOOOOP]
 	);
 }
 
-sub parse
+sub execute
 {
 	$command = shift;
 
@@ -205,59 +209,66 @@ sub parse
 		warn RPN::Error::INPUT_UNKNOWN_CMD();
 	}
 
-	undef($command) unless (ref($command));
-}
+	$command->(@_) if (ref($command));
 
-sub execute
-{
-	$command->(@_) if (defined($command))
-}
-
-sub stack
-{
-	return ($stack); # hacky
+	undef($command);
 }
 
 
+
+  ######
+  #   RPN::Stack
+   #    A singular stack...What fun is that?
 
 package RPN::Stack;
 
 use strict;
 
-# get an object
-sub init
-{
-	my @s = ();
-	return (bless \@s);
-}
-
-# methods, written in perl shorthand
+sub init  { my @s = (); return (bless \@s) }
+sub has   { my $e = shift->size >= shift; warn RPN::Error::STACK_EMPTY() unless $e; return ($e) }
 sub dump  { @{shift()} }
 sub flush { @{shift()} = () }
-sub size  { int @{shift()} }
-sub empty { not shift->size }
-sub push  { push @{shift()}, @_ }
-sub pop   { pop @{shift()} }
-sub set   { shift->[shift] = shift } # don't use these two
-sub get   { shift->[shift] }
-sub setr  { shift->set(0 - shift, shift) } # these two index from the end to the start
-sub getr  { shift->get(0 - shift) } # they are the "real" way to access da stack, bruh
-
-sub has
-{
-	my $s = shift->size >= shift;
-	warn RPN::Error::STACK_EMPTY() unless $s;
-	return ($s);
-}
+sub size  { int(@{shift()}) }
+sub empty { not(shift->size) }
+sub push  { push(@{shift()}, @_) }
+sub pop   { pop(@{shift()}) }
+sub set   { shift->[0 - shift] = shift } # reverse indexed
+sub get   { shift->[0 - shift] } # ditto
+sub top   { shift->get(1) }
 
 
+
+  ######
+  #   RPN::Stack::Frame
+   #    Manages the stacks (even for the calculator).
+   #    It will never drop the final frame which is
+   #    the RPN calculator's stack.
+
+package RPN::Stack::Frame;
+
+use strict;
+
+sub init  { my @f = (RPN::Stack->init); return (bless \@f) }
+sub flush { my $f = shift; $f->pop while ($f->size > 1) }
+sub pop   { my $f = shift; pop(@{$f}) if ($f->size > 1) }
+sub push  { my $f = shift; push(@{$f}, RPN::Stack->init); return ($f->get) }
+sub size  { int(@{shift()}) }
+sub get   { shift->[0 - shift] }
+sub top   { shift->get(1) }
+
+
+
+  ######
+  #   RPN::Register
+   #    The control unit! Manages memory, registers,
+   #    and probably some other important stuff...
 
 package RPN::Register;
 
 use strict;
 
 sub hexify($)  { sprintf(q[0x%016X], shift) }
-sub hex2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
+sub num2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
 
 sub HIGH32($) { (0xFFFFFFFF00000000 & shift) >> 32 }
 sub LOW32($)  { 0x00000000FFFFFFFF & shift }
@@ -266,36 +277,15 @@ sub LOW16($)  { 0x0000FFFF & shift }
 sub HIGH8($)  { 0xFF00 & shift }
 sub LOW8($)   { (0x00FF & shift) >> 8 }
 
-my %opcode;
+my %opcode; # static crap
 
 sub init
 {
-	%opcode =
-	(
-		# low ops (debug, testing, etc)
-		hexify(0x00) => sub { }, # noop
-		hexify(0x01) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
-		hexify(0x02) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
-		hexify(0x03) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
-		hexify(0x04) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
-		# stack ops
-		hexify(0x10) => sub { my $s = shift; $s->memory->{hexify($s->data)} = RPN->stack->pop }, # sts
-		hexify(0x11) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->data)}) }, # lds
-		hexify(0x12) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = RPN->stack->pop }, # stsi
-		hexify(0x13) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
-		hexify(0x14) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = RPN->stack->pop }, # stsd
-		hexify(0x15) => sub { my $s = shift; RPN->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
-		# register ops
-		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
-		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
-		# b-b-b-b-b-b-branch
-		hexify(0x30) => sub { my $s = shift; $s->register->{PC} = $s->data } # br
-	);
-
 	my %self =
 	(
 		register => {},
 		memory   => {},
+		frame    => RPN::Stack::Frame->init
 	);
 
 	$self{register}->{INSR} = undef;
@@ -305,8 +295,7 @@ sub init
 }
 
 # methods
-sub loads { shift->register->{INSR} = RPN->stack->pop } # <- from stack, vvv from memory w/ PC++
-sub loadm { my $s = shift; $s->register->{INSR} = $s->memory->{hexify($s->register->{PC}++)} }
+sub load  { my $s = shift; $s->memory->{$s->next} = $s->stack->pop }
 
 sub step
 {
@@ -330,10 +319,41 @@ sub step
 # fetchers
 sub register    { shift->{register} }
 sub memory      { shift->{memory} }
+sub stack       { shift->frame->top }
+sub frame       { shift->{frame} }
+# read only shaz
 sub instruction { hexify(shift->register->{INSR}) }
 sub command     { hexify(LOW32(shift->instruction)) }
 sub data        { hexify(HIGH32(shift->instruction)) }
 sub counter     { hexify(shift->register->{PC}) }
+sub next        { hexify(shift->register->{PC}++) }
+
+# setup the static crap
+sub prime
+{
+	%opcode =
+	(
+		# low ops (debug, testing, etc)
+		hexify(0x00) => sub { }, # noop
+		hexify(0x01) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
+		hexify(0x02) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
+		hexify(0x03) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
+		hexify(0x04) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+		# stack ops
+		hexify(0x10) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->stack->pop }, # sts
+		hexify(0x11) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->data)}) }, # lds
+		hexify(0x12) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = $s->stack->pop }, # stsi
+		hexify(0x13) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
+		hexify(0x14) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = $s->stack->pop }, # stsd
+		hexify(0x15) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
+		# register ops
+		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
+		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+		# b-b-b-b-b-b-branch
+		hexify(0x30) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
+		hexify(0x31) => sub { my $s = shift; }, #jsr => stack frame push, set recall, branch, stack frame pop
+	);
+}
 
 
 
