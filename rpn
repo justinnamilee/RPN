@@ -126,7 +126,8 @@ sub prime
 		flush => sub { $stack->flush }, # toss it all
 		empty => sub { $stack->push($stack->empty) },
 		load  => sub { $register->load },
-		lall  => sub { $register->load while $stack->has(1) },
+		lall  => sub { $register->load while $stack->size > 0 },
+		mdmp  => sub { $register->dump },
 		step  => sub { $register->step },
 		noop  => undef
 	);
@@ -195,7 +196,7 @@ sub execute
 		}
 		else
 		{
-			warn RPN::Error::INPUT_UNKNOWN_CMD();
+			warn RPN::Error->INPUT_UNKNOWN_CMD;
 		}
 	}
 	elsif ($command =~ /^help/i)
@@ -206,7 +207,7 @@ sub execute
 	}
 	else
 	{
-		warn RPN::Error::INPUT_UNKNOWN_CMD();
+		warn RPN::Error->INPUT_UNKNOWN_CMD;
 	}
 
 	$command->(@_) if (ref($command));
@@ -225,7 +226,7 @@ package RPN::Stack;
 use strict;
 
 sub init  { my @s = (); return (bless \@s) }
-sub has   { my $e = shift->size >= shift; warn RPN::Error::STACK_EMPTY() unless $e; return ($e) }
+sub has   { my $e = shift->size >= shift; warn RPN::Error->STACK_EMPTY unless $e; return ($e) }
 sub dump  { @{shift()} }
 sub flush { @{shift()} = () }
 sub size  { int(@{shift()}) }
@@ -267,9 +268,11 @@ package RPN::Register;
 
 use strict;
 
+# super helpers
 sub hexify($)  { sprintf(q[0x%016X], shift) }
 sub num2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
 
+# just helpers
 sub HIGH32($) { (0xFFFFFFFF00000000 & shift) >> 32 }
 sub LOW32($)  { 0x00000000FFFFFFFF & shift }
 sub HIGH16($) { (0xFFFF0000 & shift) >> 16 }
@@ -288,32 +291,10 @@ sub init
 		frame    => RPN::Stack::Frame->init
 	);
 
-	$self{register}->{INSR} = undef;
-	$self{register}->{PC} = 0; # program counter
+	$self{register}->{INSR} = hexify(0);
+	$self{register}->{PC} = RPN::Constant->DEF_MEM_BEGIN;
 
 	return (bless \%self);
-}
-
-# methods
-sub load  { my $s = shift; $s->memory->{$s->next} = $s->stack->pop }
-
-sub step
-{
-	my $self = shift;
-
-	if (defined($self->register->{INSR}))
-	{
-		my $cmd = $self->command;
-
-		if (exists($opcode{$cmd}))
-		{
-			print qq[DEBUG($cmd): ]. $opcode{$cmd}->($self) .qq[\n];
-		}
-	}
-	else
-	{
-		warn RPN::Error::POSSIBLE_BUFFER_OVERFLOW();
-	}
 }
 
 # fetchers
@@ -326,7 +307,18 @@ sub instruction { hexify(shift->register->{INSR}) }
 sub command     { hexify(LOW32(shift->instruction)) }
 sub data        { hexify(HIGH32(shift->instruction)) }
 sub counter     { hexify(shift->register->{PC}) }
-sub next        { hexify(shift->register->{PC}++) }
+sub next_pc     { hexify(shift->register->{PC}++) }
+# more fun things
+sub load        { my $s = shift; $s->memory->{$s->next_pc} = $s->stack->pop }
+sub dump
+{
+	my $s = shift;
+	for (my $i = RPN::Constant->DEF_MEM_BEGIN; $i < $s->counter; $i++)
+	{
+		print q[MEM(]. hexify($i) .q[) => ]. hexify($s->memory->{hexify($i)}) .qq[\n];
+	}
+}
+
 
 # setup the static crap
 sub prime
@@ -357,6 +349,25 @@ sub prime
 
 
 
+  ######
+  #   RPN::Constant
+   #    No more scary constants...Well some.
+
+package RPN::Constant;
+
+use strict;
+
+sub DEF_STACK_BEGIN()
+{ 0 }
+sub DEF_MEM_BEGIN()
+{ 0 }
+
+
+
+  ######
+  #   RPN::Error
+   #    A collection of error messages, pure poetry.
+
 package RPN::Error;
 
 use strict;
@@ -367,6 +378,7 @@ sub INPUT_UNKNOWN_CMD()
 { q[Unknown operation found while parsing input, what are you doing] }
 sub POSSIBLE_BUFFER_OVERFLOW()
 { q[Hit unintialized memory, what are you doing] }
+
 
 
 __END__
