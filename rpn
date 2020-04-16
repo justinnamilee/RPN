@@ -11,45 +11,83 @@
 
 use strict;
 
+
+
+  ######
+  #   main::Loader
+   #    Terminal IO?
+
+# commands queue
+my @command = @ARGV;
+# config settings
+my %config =
+(
+	# reverse file input? (mem/rpn mode)
+	reverse     => RPN::Constant->DEF_AUTO_REVERSE,
+	# you want to talk to me?
+	interactive => RPN::Constant->DEF_INTERACTIVE,
+);
+
 # init the RPN calculator
 RPN->prime;
 
-# parse the input
-foreach my $input (@ARGV)
+# parse the input, load files as encountered
+for (my $i = 0; $config{interactive} || $i < @command; (!$config{interactive}) && $i++)
 {
-	my @command = ();
+	my $input = $command[$i];
+
+	if ($config{interactive})
+	{
+		print q[ ~ ];
+		chomp($input = <STDIN>);
+	}
 
 	# if we're given files stack their input onto the queue
 	if (-f $input)
 	{
 		if (open(my $fh, q[<], $input))
 		{
+			my (@c) = ();
+
+			# line parse time
 			while (<$fh>)
 			{
 				chomp;
+
+				s/#.*//; # no comment
 				s/^\s+//;
 				s/\s+$//;
-				s/#.*//;
-				next unless length;
 
-				push @command, $_;
+				if (/^%/ || -f)
+				{
+					push(@c, $_);
+				}
+				else
+				{
+					push(@c, split);
+				}
 			}
+
+			# excuse me, pardon me; em nodrap, em esucxe? (replace current command with file contents)
+			splice(@command, $i+1, 0, ($config{reverse} ? reverse(@c) : @c));
 		}
 		else
 		{
+			# TODO: add 'ask to continue mode'
 			warn qq[Skipping file '$input': $!];
-			next; # skipperoo
 		}
+	}
+	elsif ($input =~ /^%\s*(.+?)\s*(?:=>\s*(.+))?$/)
+	{
+		my ($key, $val) = ($1, $2);
+
+		$config{$key} = $val if (defined($val));
+
+		print qq[config:$key> $config{$key}\n];
 	}
 	else
 	{
-		$command[0] = $input;
-	}
-
-	# parse commands
-	foreach my $command (@command)
-	{
-		RPN::execute($command);
+		RPN::execute($input);
 	}
 }
 
@@ -360,6 +398,10 @@ use strict;
 sub DEF_STACK_BEGIN()
 { 0 }
 sub DEF_MEM_BEGIN()
+{ 0 }
+sub DEF_AUTO_REVERSE()
+{ 1 }
+sub DEF_INTERACTIVE()
 { 0 }
 
 
