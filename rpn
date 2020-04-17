@@ -68,7 +68,7 @@ for (my $i = 0; $config{interactive} || $i < @command; (!$config{interactive}) &
 				}
 			}
 
-			# excuse me, pardon me; em nodrap, em esucxe? (replace current command with file contents)
+			# excuse me, pardon me; em nodrap, em esucxe?
 			splice(@command, $i+1, 0, ($config{reverse} ? reverse(@c) : @c));
 		}
 		else
@@ -122,6 +122,55 @@ my $register;
 my %operation;
 my %help;
 
+# do it!
+sub execute
+{
+	$command = shift;
+
+	if ($command =~ /^(?:\+|-)?(?:0[xXbB])?\d+(?:\.\d+)?(?:e\d+)?$/)
+	{
+		# push numbers onto the stack
+		$stack->push(force2num($command));
+	}
+	elsif (exists($operation{$command}))
+	{
+		# grab commands if we have them
+		$command = $operation{$command};
+	}
+	elsif ($command =~ /^help:(.+)/i)
+	{
+		$command = lc($1);
+
+		if ($command eq q[list])
+		{
+			print q[list> ]. join(q[, ], keys(%operation)) .qq[\n];
+		}
+		elsif (exists($help{$command}))
+		{
+			print qq[help[$command]> $help{$command}\n];
+		}
+		else
+		{
+			warn RPN::Error->INPUT_UNKNOWN_CMD;
+		}
+	}
+	elsif ($command =~ /^help/i)
+	{
+		print qq[help>\n];
+		print qq[\t   Get a listing: help:list\n];
+		print qq[\tGet command help: help:<command>\n];
+	}
+	else
+	{
+		warn RPN::Error->INPUT_UNKNOWN_CMD;
+	}
+
+	$command->(@_) if (ref($command));
+
+	undef($command);
+}
+
+# init the static crap
 sub prime
 {
 	RPN::Register->prime; # get er' nice and ready
@@ -182,7 +231,7 @@ sub prime
 		'/'   => q[Pop two stack items, divide them, push the result to stack],
 		'*'   => q[Pop two stack items, multiply them, push the result to stack],
 		'-'   => q[Pop two stack items, subtract them, push the result to stack],
-		'%'   => q[Pop two stack items, compute FIRST % SECOND, push the result to the stack],
+		'%'   => q[Pop two stack items, compute (FIRST % SECOND), push the result to the stack],
 		'**'  => q[Pop two stack items, exponentiate them, push the result to the stack],
 		'^'   => q[Pop two stack items, bitwise-xor them, push the result to the stack],
 		'&'   => q[Pop two stack items, bitwise-and them, push the result to the stack],
@@ -204,53 +253,6 @@ sub prime
 		step  => q[Step the register machine],
 		noop  => q[NOOOOOOP]
 	);
-}
-
-sub execute
-{
-	$command = shift;
-
-	if ($command =~ /^(?:\+|-)?(?:0[xXbB])?\d+(?:\.\d+)?(?:e\d+)?$/)
-	{
-		# push numbers onto the stack
-		$stack->push(force2num($command));
-	}
-	elsif (exists($operation{$command}))
-	{
-		# grab commands if we have them
-		$command = $operation{$command};
-	}
-	elsif ($command =~ /^help:(.+)/i)
-	{
-		$command = lc($1);
-
-		if ($command eq q[list])
-		{
-			print q[list> ]. join(q[, ], keys(%operation)) .qq[\n];
-		}
-		elsif (exists($help{$command}))
-		{
-			print qq[help[$command]> $help{$command}\n];
-		}
-		else
-		{
-			warn RPN::Error->INPUT_UNKNOWN_CMD;
-		}
-	}
-	elsif ($command =~ /^help/i)
-	{
-		print qq[help>\n];
-		print qq[\t   Get a listing: help:list\n];
-		print qq[\tGet command help: help:<command>\n];
-	}
-	else
-	{
-		warn RPN::Error->INPUT_UNKNOWN_CMD;
-	}
-
-	$command->(@_) if (ref($command));
-
-	undef($command);
 }
 
 
@@ -319,18 +321,22 @@ sub HIGH8($)  { 0xFF00 & shift }
 sub LOW8($)   { (0x00FF & shift) >> 8 }
 
 my %opcode; # static crap
+my $run = RPN::Constant->DEF_RUN_STATE;
 
 sub init
 {
 	my %self =
 	(
-		register => {},
-		memory   => {},
+		register => {}, # machine "registers"
+		memory   => {}, # uses a 32-bit address space with bucketed addressing
 		frame    => RPN::Stack::Frame->init
 	);
 
 	$self{register}->{INSR} = hexify(0);
 	$self{register}->{PC} = RPN::Constant->DEF_MEM_BEGIN;
+	$self{register}->{RECALL} = RPN::Constant->DEF_MEM_BEGIN;
+	$self{register}->{COW} = hexify(0); # don't have a cow, man
+	$self{register}->{R0} = hexify(0);
 
 	return (bless \%self);
 }
@@ -338,15 +344,18 @@ sub init
 # fetchers
 sub register    { shift->{register} }
 sub memory      { shift->{memory} }
-sub stack       { shift->frame->top }
 sub frame       { shift->{frame} }
+sub stack       { shift->frame->top }
+
 # read only shaz
 sub instruction { hexify(shift->register->{INSR}) }
 sub command     { hexify(LOW32(shift->instruction)) }
 sub data        { hexify(HIGH32(shift->instruction)) }
 sub counter     { hexify(shift->register->{PC}) }
 sub next_pc     { hexify(shift->register->{PC}++) }
-# more fun things
+sub prev_pc     { hexify(shift->register->{PC}--) }
+
+# to and from calculator
 sub load        { my $s = shift; $s->memory->{$s->next_pc} = $s->stack->pop }
 sub dump
 {
@@ -357,6 +366,33 @@ sub dump
 	}
 }
 
+# these are pretty important
+sub run         { shift->step while ($run) }
+sub step
+{
+	my $s = shift;
+
+	if ($s->counter < RPN::Constant::MAX_UINT32)
+	{
+		$s->register->{INSR} = hexify($s->memory->{$s->next_pc});
+
+		if (exists($opcode{$s->instruction}))
+		{
+			$opcode{$s->instruction}->(); # run it!
+		}
+		else
+		{
+			warn RPN::Error->INPUT_UNKNOWN_CMD;
+		}
+	}
+	else
+	{
+		warn RPN::Error->MEMORY_LIMIT_REACHED;
+	}
+
+	# sleep some amount to simulate clock speeds?
+}
+
 
 # setup the static crap
 sub prime
@@ -364,24 +400,28 @@ sub prime
 	%opcode =
 	(
 		# low ops (debug, testing, etc)
-		hexify(0x00) => sub { }, # noop
-		hexify(0x01) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
-		hexify(0x02) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
-		hexify(0x03) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
-		hexify(0x04) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+		hexify(0x000) => sub { $run = 0 }, # halt
+		hexify(0x001) => sub { }, # noop
+		hexify(0x00A) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
+		hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
+		hexify(0x00C) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
+		hexify(0x00D) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+
 		# stack ops
-		hexify(0x10) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->stack->pop }, # sts
-		hexify(0x11) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->data)}) }, # lds
-		hexify(0x12) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = $s->stack->pop }, # stsi
-		hexify(0x13) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
-		hexify(0x14) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = $s->stack->pop }, # stsd
-		hexify(0x15) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
+		hexify(0x010) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->stack->pop }, # sts
+		hexify(0x011) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->data)}) }, # lds
+		hexify(0x012) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = $s->stack->pop }, # stsi
+		hexify(0x013) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
+		hexify(0x014) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = $s->stack->pop }, # stsd
+		hexify(0x015) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
+		
 		# register ops
-		hexify(0x20) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
-		hexify(0x21) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+		hexify(0x020) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
+		hexify(0x021) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+
 		# b-b-b-b-b-b-branch
-		hexify(0x30) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
-		hexify(0x31) => sub { my $s = shift; }, #jsr => stack frame push, set recall, branch, stack frame pop
+		hexify(0x030) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
+		hexify(0x031) => sub { my $s = shift; }, #jsr => stack frame push, set recall, branch, stack frame pop
 	);
 }
 
@@ -395,13 +435,28 @@ package RPN::Constant;
 
 use strict;
 
+sub MAX_UINT32()
+{ 0xFFFFFFFFFFFFFFFF }
+sub MAX_UINT16()
+{ 0xFFFFFFFF }
+sub MAX_UINT8()
+{ 0xFFFF }
+sub MIN_UINT32()
+{ 0x0000000000000000 }
+sub MIN_UINT16()
+{ 0x00000000 }
+sub MIN_UINT8()
+{ 0x0000 }
+
 sub DEF_STACK_BEGIN()
 { 0 }
 sub DEF_MEM_BEGIN()
-{ 0 }
+{ 0x0000000000000000 }
 sub DEF_AUTO_REVERSE()
 { 1 }
 sub DEF_INTERACTIVE()
+{ 0 }
+sub DEF_RUN_STATE()
 { 0 }
 
 
@@ -417,9 +472,11 @@ use strict;
 sub STACK_EMPTY()
 { q[Stack is empty, what are you doing] }
 sub INPUT_UNKNOWN_CMD()
-{ q[Unknown operation found while parsing input, what are you doing] }
+{ q[Unknown operation found while parsing input, try reading some documentation first] }
 sub POSSIBLE_BUFFER_OVERFLOW()
-{ q[Hit unintialized memory, what are you doing] }
+{ q[Hit unintialized memory, you really suck at this] }
+sub MEMORY_LIMIT_REACHED()
+{ q[Holy hell, we hit the end of the universe, Bill Gates was wrong after all] }
 
 
 
