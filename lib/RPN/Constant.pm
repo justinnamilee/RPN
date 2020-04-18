@@ -10,6 +10,14 @@ package RPN::Constant;
 use strict;
 
 
+sub PROMPT()
+{ q[ ~ ] }
+sub PROMPT_DISABLE()
+{ '%interactive=>0' }
+sub PROMPT_ENABLE()
+{ '%interactive=>1' }
+
+
 sub MAX_UINT32()
 { 0xFFFFFFFFFFFFFFFF }
 sub MAX_UINT16()
@@ -22,6 +30,7 @@ sub MIN_UINT16()
 { 0x00000000 }
 sub MIN_UINT8()
 { 0x0000 }
+
 
 sub DEF_STACK_BEGIN()
 { 0 }
