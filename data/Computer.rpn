@@ -4,6 +4,8 @@
     # low ops (debug, testing, etc)
     hexify(0x000) => sub { shift->run(0) }, # halt
     hexify(0x001) => sub { }, # noop
+
+    # still low, still debug
     hexify(0x00A) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
     hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
     hexify(0x00C) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003

@@ -20,7 +20,7 @@
     '^'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop ^  RPN->stack->pop) } },
     '&'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop &  RPN->stack->pop) } },
     '|'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop |  RPN->stack->pop) } },
-    '<<'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop << (RPN->stack->pop)) } }, # << is b0rk in vscode
+    '<<'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop << (RPN->stack->pop)) } }, # << is b0rk in vscode, blah
     '>>'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop >> RPN->stack->pop) } }, # vvv safe boolean ops
     '&&'  => sub { if (RPN->stack->has(2)) { my ($a,$b) = (RPN->stack->pop, RPN->stack->pop); RPN->stack->push(bool2num($a && $b)) } },
     '||'  => sub { if (RPN->stack->has(2)) { my ($a,$b) = (RPN->stack->pop, RPN->stack->pop); RPN->stack->push(bool2num($a || $b)) } },

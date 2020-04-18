@@ -18,9 +18,9 @@ use RPN::Error;
 
 
 sub init  { my @f = (RPN::Stack->init); return (bless \@f) }
-sub flush { my $f = shift; $f->pop while ($f->size > 1) }
+sub flush { my $f = shift; @{$f} = (RPN::Stack->init) }
 sub pop   { my $f = shift; pop(@{$f}) if ($f->size > 1) }
-sub push  { my $f = shift; push(@{$f}, RPN::Stack->init); return ($f->get) }
+sub push  { my $f = shift; push(@{$f}, RPN::Stack->init) }
 sub size  { int(@{shift()}) }
 sub get   { shift->[0 - shift] }
 sub top   { shift->get(1) }
