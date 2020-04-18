@@ -11,8 +11,8 @@
 use lib q[./lib];
 use strict;
 
-use RPN; # import the machine
 use RPN::Constant; # needed
+use RPN; # import the machine
 
 
   ######

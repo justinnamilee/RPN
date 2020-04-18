@@ -11,9 +11,9 @@ package RPN;
 use strict;
 
 
-use RPN::Register;
 use RPN::Constant;
 use RPN::Error;
+use RPN::Register;
 
 
 # these should be somewhere else

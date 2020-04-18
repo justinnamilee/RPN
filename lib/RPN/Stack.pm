@@ -12,7 +12,6 @@ use strict;
 
 use RPN::Constant;
 use RPN::Error;
-use RPN::Constant;
 
 
 sub init  { my @s = (); return (bless \@s) }

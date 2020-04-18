@@ -1,6 +1,10 @@
 #!/usr/bin/perl
 
 (
+    ####
+    #  debug stuff and shit
+     #
+
     # low ops (debug, testing, etc)
     hexify(0x000) => sub { shift->run(0) }, # halt
     hexify(0x001) => sub { }, # noop
@@ -10,6 +14,11 @@
     hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
     hexify(0x00C) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
     hexify(0x00D) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+
+
+    ####
+    #  memory ops
+     #
 
     # stack ops
     hexify(0x010) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->stack->pop }, # sts
@@ -29,6 +38,15 @@
     hexify(0x030) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
     hexify(0x031) => sub { my $s = shift; $s->register->{RECALL} = $s->counter; $s->frame->push; $s->register->{PC} = $s->data }, # jsr
     hexify(0x032) => sub { my $s = shift; $s->register->{PC} = $s->recall; $s->frame->pop }, # ret
+
+    # frame
+    hexify(0x040) => sub { my $s = shift; $s->frame->push },
+    hexify(0x041) => sub { my $s = shift; $s->frame->pop },
+
+
+    ####
+    #  help me plz
+     #
 
     help => # should fill this in at some point
     {
