@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+(
+    # low ops (debug, testing, etc)
+    hexify(0x000) => sub { $run = 0 }, # halt
+    hexify(0x001) => sub { }, # noop
+    hexify(0x00A) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
+    hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
+    hexify(0x00C) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
+    hexify(0x00D) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+
+    # stack ops
+    hexify(0x010) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->stack->pop }, # sts
+    hexify(0x011) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->data)}) }, # lds
+    hexify(0x012) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}++)} = $s->stack->pop }, # stsi
+    hexify(0x013) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}--)}) }, # ldsd
+    hexify(0x014) => sub { my $s = shift; $s->memory->{hexify($s->register->{PC}--)} = $s->stack->pop }, # stsd
+    hexify(0x015) => sub { my $s = shift; $s->stack->push($s->memory->{hexify($s->register->{PC}++)}) }, # ldsi
+    
+    # register ops
+    hexify(0x020) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
+    hexify(0x021) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+    hexify(0x022) => sub { my $s = shift; $s->memory->{hexify($s->data)} = $s->register->{R0} }, # str
+    hexify(0x023) => sub { my $s = shift; $s->register->{R0} = $s->memory->{hexify($s->data)} }, # ldr
+
+    # b-b-b-b-b-b-branch
+    hexify(0x030) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
+    hexify(0x031) => sub { my $s = shift; $s->register->{RECALL} = $s->counter; $s->frame->push; $s->register->{PC} = $s->data }, # jsr
+    hexify(0x032) => sub { my $s = shift; $s->register->{PC} = $s->recall; $s->frame->pop }, # ret
+)

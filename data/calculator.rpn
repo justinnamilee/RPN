@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+(
+    # tests
+    '=='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? TRUE : FALSE) } },
+    '!='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? FALSE : TRUE) } }, # lol
+    '<'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  < $stack->get(2)) ? TRUE : FALSE) } },
+    '>'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  > $stack->get(2)) ? TRUE : FALSE) } },
+    '<='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) <= $stack->get(2)) ? TRUE : FALSE) } },
+    '>='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) >= $stack->get(2)) ? TRUE : FALSE) } },
+    # ternary ops
+    '?'   => sub { if ($stack->has(3)) { if ($stack->pop) { my $k = $stack->pop; $stack->set(1, $k) } else { $stack->pop } } },
+    # binary ops
+    '+'   => sub { if ($stack->has(2)) { $stack->push($stack->pop +  $stack->pop) } }, 
+    '/'   => sub { if ($stack->has(2)) { $stack->push($stack->pop /  $stack->pop) } },
+    '*'   => sub { if ($stack->has(2)) { $stack->push($stack->pop *  $stack->pop) } },
+    '-'   => sub { if ($stack->has(2)) { $stack->push($stack->pop -  $stack->pop) } },
+    '%'   => sub { if ($stack->has(2)) { $stack->push($stack->pop %  $stack->pop) } },
+    '**'  => sub { if ($stack->has(2)) { $stack->push($stack->pop ** $stack->pop) } },
+    '^'   => sub { if ($stack->has(2)) { $stack->push($stack->pop ^  $stack->pop) } },
+    '&'   => sub { if ($stack->has(2)) { $stack->push($stack->pop &  $stack->pop) } },
+    '|'   => sub { if ($stack->has(2)) { $stack->push($stack->pop |  $stack->pop) } },
+    '<<'  => sub { if ($stack->has(2)) { $stack->push($stack->pop << $stack->pop) } },
+    '>>'  => sub { if ($stack->has(2)) { $stack->push($stack->pop >> $stack->pop) } }, # vvv safe boolean ops
+    '&&'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a && $b)) } },
+    '||'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a || $b)) } },
+    # unary
+    '++'  => sub { if ($stack->has(1)) { $stack->push($stack->pop + 1) } },
+    '--'  => sub { if ($stack->has(1)) { $stack->push($stack->pop - 1) } },
+    # functions
+    pop   => sub { if ($stack->has(1)) { $stack->pop } },
+    peek  => sub { if ($stack->has(1)) { print q[peek> ]. $stack->get(1) .qq[\n] } },
+    stack => sub { print q[stack#> ]. $stack->size .qq[\n] },
+    dump  => sub { my $n = $stack->size; foreach my $s (reverse $stack->dump) { $n--; print qq[stack$n> $s\n]; } },
+    flush => sub { $stack->flush }, # toss it all
+    empty => sub { $stack->push($stack->empty) },
+    load  => sub { $register->load },
+    lall  => sub { $register->load while $stack->size > 0 },
+    mdmp  => sub { $register->dump },
+    step  => sub { $register->step },
+    noop  => undef,
+    help  =>
+    {
+        '=='  => q[Test equality, push result to stack],
+        '!='  => q[Test inequality, push result to stack],
+        '<'   => q[Test less-than, push result to stack],
+        '>'   => q[Test greater-than, push result to stack],
+        '<='  => q[Test less-than-equals, push result to stack],
+        '>='  => q[Test greater-than-equals, push result to stack],
+        '?'   => q[Pop three stack items, push (FIRST ? SECOND : THIRD) to stack],
+        '+'   => q[Pop two stack items, add them, push result to stack],
+        '/'   => q[Pop two stack items, divide them, push the result to stack],
+        '*'   => q[Pop two stack items, multiply them, push the result to stack],
+        '-'   => q[Pop two stack items, subtract them, push the result to stack],
+        '%'   => q[Pop two stack items, compute (FIRST % SECOND), push the result to the stack],
+        '**'  => q[Pop two stack items, exponentiate them, push the result to the stack],
+        '^'   => q[Pop two stack items, bitwise-xor them, push the result to the stack],
+        '&'   => q[Pop two stack items, bitwise-and them, push the result to the stack],
+        '|'   => q[Pop two stack items, bitwise-or them, push the result to the stack],
+        '<<'  => q[Pop two stack items, bitwise-shift them left, push the result to the stack],
+        '>>'  => q[Pop two stack items, bitwise-shift them right, push the result to the stack],
+        '&&'  => q[Pop two stack items, logical-and them, push the result to the stack],
+        '||'  => q[Pop two stack items, locical-or them, push the result to the stack],
+        '++'  => q[Increment value on top of the stack],
+        '--'  => q[Decrement value on top of the stack],
+        pop   => q[Pop the stack],
+        peek  => q[Peek at the top of the stack],
+        stack => q[Show stack information],
+        dump  => q[Dump the stack],
+        flush => q[Flush the stack completely],
+        empty => q[Test if the stack is empty, push the result to stack],
+        load  => q[Pop the stack into the next memory location],
+        lall  => q[Pop the stack into the next memory location until empty],
+        step  => q[Step the register machine],
+        noop  => q[NOOOOOOP]
+    }
+)
