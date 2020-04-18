@@ -14,6 +14,7 @@
     hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
     hexify(0x00C) => sub { print q[REG(CMD)  : ]. shift->command .qq[\n] }, # should always return 0x00000003
     hexify(0x00D) => sub { print q[REG(DATA) : ]. shift->data .qq[\n] },
+    hexify(0x00E) => sub { print q[REG(REC)  : ]. shift->recall .qq[\n] },
 
 
     ####

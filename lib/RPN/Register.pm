@@ -29,7 +29,7 @@ sub HIGH8($)  { 0xFF00 & shift }
 sub LOW8($)   { (0x00FF & shift) >> 8 }
 
 my %opcode; # static crap
-my $run;
+my $run; # not how this works
 my $config;
 
 sub init
@@ -41,11 +41,13 @@ sub init
 		frame    => RPN::Stack::Frame->init
 	);
 
-	$self{register}->{INSR} = hexify(0);
-	$self{register}->{PC} = RPN::Constant->DEF_MEM_BEGIN;
+	# register init
+	$self{register}->{INSR}   = hexify(0);
+	$self{register}->{PC}     = RPN::Constant->DEF_MEM_BEGIN;
 	$self{register}->{RECALL} = RPN::Constant->DEF_MEM_BEGIN;
-	$self{register}->{COW} = hexify(0); # don't have a cow, man
-	$self{register}->{R0} = hexify(0);
+	$self{register}->{COW}    = hexify(0); # don't have a cow, man
+	$self{register}->{R0}     = hexify(0);
+	$self{register}->{TEST}   = hexify(0);
 
 	return (bless \%self);
 }
