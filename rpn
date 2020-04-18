@@ -37,7 +37,7 @@ my %config =
 );
 
 # init the RPN calculator
-RPN->prime;
+RPN->prime(\%config);
 
 # parse the input, load files as encountered
 for (my $i = 0; $config{interactive} || $i < @command; (!$config{interactive}) && $i++)

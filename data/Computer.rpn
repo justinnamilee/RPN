@@ -2,7 +2,7 @@
 
 (
     # low ops (debug, testing, etc)
-    hexify(0x000) => sub { $run = 0 }, # halt
+    hexify(0x000) => sub { shift->run(0) }, # halt
     hexify(0x001) => sub { }, # noop
     hexify(0x00A) => sub { print q[REG(INSR) : ]. shift->instruction .qq[\n] }, # what did I just send you?
     hexify(0x00B) => sub { print q[REG(PC)   : ]. shift->counter .qq[\n] },
@@ -27,4 +27,9 @@
     hexify(0x030) => sub { my $s = shift; $s->register->{PC} = $s->data }, # br
     hexify(0x031) => sub { my $s = shift; $s->register->{RECALL} = $s->counter; $s->frame->push; $s->register->{PC} = $s->data }, # jsr
     hexify(0x032) => sub { my $s = shift; $s->register->{PC} = $s->recall; $s->frame->pop }, # ret
+
+    help => # should fill this in at some point
+    {
+
+    }
 )

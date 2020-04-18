@@ -2,42 +2,42 @@
 
 (
     # tests
-    '=='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? TRUE : FALSE) } },
-    '!='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) == $stack->get(2)) ? FALSE : TRUE) } }, # lol
-    '<'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  < $stack->get(2)) ? TRUE : FALSE) } },
-    '>'   => sub { if ($stack->has(2)) { $stack->push(($stack->get(1)  > $stack->get(2)) ? TRUE : FALSE) } },
-    '<='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) <= $stack->get(2)) ? TRUE : FALSE) } },
-    '>='  => sub { if ($stack->has(2)) { $stack->push(($stack->get(1) >= $stack->get(2)) ? TRUE : FALSE) } },
+    '=='  => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1) == RPN->stack->get(2)) ? TRUE : FALSE) } },
+    '!='  => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1) == RPN->stack->get(2)) ? FALSE : TRUE) } }, # lol
+    '<'   => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1)  < RPN->stack->get(2)) ? TRUE : FALSE) } },
+    '>'   => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1)  > RPN->stack->get(2)) ? TRUE : FALSE) } },
+    '<='  => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1) <= RPN->stack->get(2)) ? TRUE : FALSE) } },
+    '>='  => sub { if (RPN->stack->has(2)) { RPN->stack->push((RPN->stack->get(1) >= RPN->stack->get(2)) ? TRUE : FALSE) } },
     # ternary ops
-    '?'   => sub { if ($stack->has(3)) { if ($stack->pop) { my $k = $stack->pop; $stack->set(1, $k) } else { $stack->pop } } },
+    '?'   => sub { if (RPN->stack->has(3)) { if (RPN->stack->pop) { my $k = RPN->stack->pop; RPN->stack->set(1, $k) } else { RPN->stack->pop } } },
     # binary ops
-    '+'   => sub { if ($stack->has(2)) { $stack->push($stack->pop +  $stack->pop) } }, 
-    '/'   => sub { if ($stack->has(2)) { $stack->push($stack->pop /  $stack->pop) } },
-    '*'   => sub { if ($stack->has(2)) { $stack->push($stack->pop *  $stack->pop) } },
-    '-'   => sub { if ($stack->has(2)) { $stack->push($stack->pop -  $stack->pop) } },
-    '%'   => sub { if ($stack->has(2)) { $stack->push($stack->pop %  $stack->pop) } },
-    '**'  => sub { if ($stack->has(2)) { $stack->push($stack->pop ** $stack->pop) } },
-    '^'   => sub { if ($stack->has(2)) { $stack->push($stack->pop ^  $stack->pop) } },
-    '&'   => sub { if ($stack->has(2)) { $stack->push($stack->pop &  $stack->pop) } },
-    '|'   => sub { if ($stack->has(2)) { $stack->push($stack->pop |  $stack->pop) } },
-    '<<'  => sub { if ($stack->has(2)) { $stack->push($stack->pop << $stack->pop) } },
-    '>>'  => sub { if ($stack->has(2)) { $stack->push($stack->pop >> $stack->pop) } }, # vvv safe boolean ops
-    '&&'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a && $b)) } },
-    '||'  => sub { if ($stack->has(2)) { my ($a,$b) = ($stack->pop, $stack->pop); $stack->push(bool2num($a || $b)) } },
+    '+'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop +  RPN->stack->pop) } }, 
+    '/'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop /  RPN->stack->pop) } },
+    '*'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop *  RPN->stack->pop) } },
+    '-'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop -  RPN->stack->pop) } },
+    '%'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop %  RPN->stack->pop) } },
+    '**'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop ** RPN->stack->pop) } },
+    '^'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop ^  RPN->stack->pop) } },
+    '&'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop &  RPN->stack->pop) } },
+    '|'   => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop |  RPN->stack->pop) } },
+    '<<'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop << (RPN->stack->pop)) } }, # << is b0rk in vscode
+    '>>'  => sub { if (RPN->stack->has(2)) { RPN->stack->push(RPN->stack->pop >> RPN->stack->pop) } }, # vvv safe boolean ops
+    '&&'  => sub { if (RPN->stack->has(2)) { my ($a,$b) = (RPN->stack->pop, RPN->stack->pop); RPN->stack->push(bool2num($a && $b)) } },
+    '||'  => sub { if (RPN->stack->has(2)) { my ($a,$b) = (RPN->stack->pop, RPN->stack->pop); RPN->stack->push(bool2num($a || $b)) } },
     # unary
-    '++'  => sub { if ($stack->has(1)) { $stack->push($stack->pop + 1) } },
-    '--'  => sub { if ($stack->has(1)) { $stack->push($stack->pop - 1) } },
+    '++'  => sub { if (RPN->stack->has(1)) { RPN->stack->push(RPN->stack->pop + 1) } },
+    '--'  => sub { if (RPN->stack->has(1)) { RPN->stack->push(RPN->stack->pop - 1) } },
     # functions
-    pop   => sub { if ($stack->has(1)) { $stack->pop } },
-    peek  => sub { if ($stack->has(1)) { print q[peek> ]. $stack->get(1) .qq[\n] } },
-    stack => sub { print q[stack#> ]. $stack->size .qq[\n] },
-    dump  => sub { my $n = $stack->size; foreach my $s (reverse $stack->dump) { $n--; print qq[stack$n> $s\n]; } },
-    flush => sub { $stack->flush }, # toss it all
-    empty => sub { $stack->push($stack->empty) },
-    load  => sub { $register->load },
-    lall  => sub { $register->load while $stack->size > 0 },
-    mdmp  => sub { $register->dump },
-    step  => sub { $register->step },
+    pop   => sub { if (RPN->stack->has(1)) { RPN->stack->pop } },
+    peek  => sub { if (RPN->stack->has(1)) { print q[peek> ]. RPN->stack->get(1) .qq[\n] } },
+    stack => sub { print q[stack#> ]. RPN->stack->size .qq[\n] },
+    dump  => sub { my $n = RPN->stack->size; foreach my $s (reverse RPN->stack->dump) { $n--; print qq[stack$n> $s\n]; } },
+    flush => sub { RPN->stack->flush }, # toss it all
+    empty => sub { RPN->stack->push(RPN->stack->empty) },
+    load  => sub { RPN->register->load },
+    lall  => sub { RPN->register->load while RPN->stack->size > 0 },
+    mdmp  => sub { RPN->register->dump },
+    step  => sub { RPN->register->step },
     noop  => undef,
     help  =>
     {

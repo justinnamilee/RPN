@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 
 
   ######
@@ -28,7 +29,8 @@ sub HIGH8($)  { 0xFF00 & shift }
 sub LOW8($)   { (0x00FF & shift) >> 8 }
 
 my %opcode; # static crap
-my $run = RPN::Constant->DEF_RUN_STATE;
+my $run;
+my $config;
 
 sub init
 {
@@ -62,6 +64,10 @@ sub recall      { hexify(shift->register->{RECALL}) }
 sub counter     { hexify(shift->register->{PC}) }
 sub next_pc     { hexify(shift->register->{PC}++) }
 sub prev_pc     { hexify(shift->register->{PC}--) }
+
+# control
+sub halt        { $run = 0 }
+sub unhalt      { $run = 1 }
 
 # to and from calculator
 sub load        { my $s = shift; $s->memory->{$s->next_pc} = $s->stack->pop }
@@ -105,7 +111,19 @@ sub step
 # setup the static crap
 sub prime
 {
-# TODO fixme plz
+	my $self = shift;
+
+	$config = shift;
+	$run = RPN::Constant->DEF_RUN_STATE;
+
+	if (-f $config->{computer})
+	{
+		%opcode = do $config->{computer};
+	}
+	else
+	{
+		RPN::Error->MODULE_LOAD_FAILED;
+	}
 }
 
 

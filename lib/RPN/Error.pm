@@ -18,6 +18,8 @@ sub POSSIBLE_BUFFER_OVERFLOW()
 { q[Hit unintialized memory, you really suck at this] }
 sub MEMORY_LIMIT_REACHED()
 { q[Holy hell, we hit the end of the universe, Bill Gates was wrong after all] }
+sub MODULE_LOAD_FAILED()
+{ q[Module missing, can't work with nothin' here, boss] }
 
 
 __PACKAGE__
