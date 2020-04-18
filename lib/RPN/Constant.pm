@@ -9,6 +9,7 @@ package RPN::Constant;
 
 use strict;
 
+
 sub MAX_UINT32()
 { 0xFFFFFFFFFFFFFFFF }
 sub MAX_UINT16()

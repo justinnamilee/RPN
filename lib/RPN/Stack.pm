@@ -9,6 +9,12 @@ package RPN::Stack;
 
 use strict;
 
+
+use RPN::Constant;
+use RPN::Error;
+use RPN::Constant;
+
+
 sub init  { my @s = (); return (bless \@s) }
 sub has   { my $e = shift->size >= shift; warn RPN::Error->STACK_EMPTY unless $e; return ($e) }
 sub dump  { @{shift()} }

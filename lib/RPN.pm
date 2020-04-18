@@ -10,6 +10,12 @@ package RPN;
 
 use strict;
 
+
+use RPN::Register;
+use RPN::Constant;
+use RPN::Error;
+
+
 sub FALSE() { 0 }
 sub TRUE()  { 1 }
 
@@ -77,7 +83,7 @@ sub prime
 	$register = RPN::Register->init; # control unit
 	$stack = $register->frame->top; # calculator stack is always top frame
 
-	%operation = (); # fixmeplz
+	%operation = (do shift); # fixmeplz
 }
 
 

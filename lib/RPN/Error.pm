@@ -9,6 +9,7 @@ package RPN::Error;
 
 use strict;
 
+
 sub STACK_EMPTY()
 { q[Stack is empty, what are you doing] }
 sub INPUT_UNKNOWN_CMD()

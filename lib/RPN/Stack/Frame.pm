@@ -10,7 +10,11 @@
 package RPN::Stack::Frame;
 
 use strict;
+
+
 use RPN::Stack;
+use RPN::Constant;
+use RPN::Error;
 
 
 sub init  { my @f = (RPN::Stack->init); return (bless \@f) }

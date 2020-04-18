@@ -8,10 +8,11 @@
 #   It does that kind of thing, you
 #   know?
 
-use lib q[.];
+use lib q[./lib];
 use strict;
 
-#use RPN; # import the machine
+use RPN; # import the machine
+use RPN::Constant; # needed
 
 
   ######

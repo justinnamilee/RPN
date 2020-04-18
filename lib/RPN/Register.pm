@@ -9,6 +9,12 @@ package RPN::Register;
 
 use strict;
 
+
+use RPN::Constant;
+use RPN::Error;
+use RPN::Stack::Frame;
+
+
 # super helpers
 sub hexify($)  { sprintf(q[0x%016X], shift) }
 sub num2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
@@ -101,3 +107,6 @@ sub prime
 {
 # TODO fixme plz
 }
+
+
+__PACKAGE__
