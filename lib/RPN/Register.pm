@@ -17,8 +17,8 @@ use RPN::Stack::Frame;
 
 
 # super helpers
-sub hexify($)  { sprintf(q[0x%016X], shift) }
-sub num2reg($) { sprintf(q[R%d], shift) } # note R0 is a special register
+sub hexify($)  { sprintf(RPN::Constant->HEX_FORMAT, shift) }
+sub num2reg($) { sprintf(RPN::Constant->REG_FORMAT, shift) } # note R0 is a special register
 
 # just helpers
 sub HIGH32($) { (0xFFFFFFFF00000000 & shift) >> 32 }
@@ -37,12 +37,13 @@ sub init
 	my %self =
 	(
 		register => {}, # machine "registers"
-		memory   => {}, # uses a 32-bit address space with bucketed addressing
+		memory   => {}, # 32-bit address space
 		frame    => RPN::Stack::Frame->init
 	);
 
 	# register init
-	$self{register}->{INSR}   = hexify(0);
+	$self{register}->{INSR}   = undef;
+	$self{register}->{DATA}   = undef;
 	$self{register}->{PC}     = RPN::Constant->DEF_MEM_BEGIN;
 	$self{register}->{RECALL} = RPN::Constant->DEF_MEM_BEGIN;
 	$self{register}->{COW}    = hexify(0); # don't have a cow, man
@@ -59,9 +60,9 @@ sub frame       { shift->{frame} }
 sub stack       { shift->frame->top }
 
 # read only shaz
-sub instruction { hexify(shift->register->{INSR}) }
-sub command     { hexify(LOW32(shift->instruction)) }
-sub data        { hexify(HIGH32(shift->instruction)) }
+sub fetch       { my $s = shift; hexify($s->memory->{$s->next_pc}) }
+sub instruction { my $s = shift; defined($s->register->{INSR}) ? ($s->register->{INSR} = $s->fetch) : $s->register->{INSR} }
+sub data        { my $s = shift; defined($s->register->{DATA}) ? ($s->register->{DATA} = $s->fetch) : $s->register->{DATA} }
 sub recall      { hexify(shift->register->{RECALL}) }
 sub counter     { hexify(shift->register->{PC}) }
 sub next_pc     { hexify(shift->register->{PC}++) }
@@ -90,8 +91,6 @@ sub step
 
 	if ($s->counter < RPN::Constant->MAX_UINT32)
 	{
-		$s->register->{INSR} = hexify($s->memory->{$s->next_pc});
-
 		if (exists($opcode{$s->instruction}))
 		{
 			$opcode{$s->instruction}->(); # run it!
@@ -107,8 +106,11 @@ sub step
 	}
 
 	# sleep some amount to simulate clock speeds?
-}
 
+	# clean up
+	$s->register->{DATA} = undef;
+	$s->register->{INSR} = undef;
+}
 
 # setup the static crap
 sub prime

@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+(
+    ####
+    #  mathematical!  rhombus!
+     #
+
+    # Add two 8-bit num from instruction, result in R0.  (NUM+NUM->R0)
+    hexify(0x120) => sub
+    {
+        my $s = shift;
+        my $base = LOW8(HIGH16($s->data)) + LOW8(LOW16($s->data));
+        if ($base > RPN::Constant->MAX_UINT8)
+        {
+            $base = LOW8($base);
+            $s->register->{TEST} |= RPN::Constant->TEST_FLAG_OVFL;
+        }
+        $s->register->{R0} = $base;
+    },
+    # Add two 16-bit num from instruction, result in R0.  (NUM+NUM->R0)
+    hexify(0x121) => sub
+    {
+        my $s = shift;
+        my $base = HIGH16($s->data) + LOW16($s->data);
+        if ($base > RPN::Constant->MAX_UINT16)
+        {
+            $base = LOW16($base);
+            $s->register->{TEST} |= RPN::Constant->TEST_FLAG_OVFL;
+        }
+        $s->register->{R0} = $base;
+    },
+    # Add two 64-bit num from instruction (data + Rx), result in R0.  (NUM+Rx->R0)
+    hexify(0x122) => sub
+    {
+        my $s = shift;
+        my $base = $s->register->{num2reg(LOW8(HIGH16($s->instruction)))} + $s->data;
+
+        if ($base > RPN::Constant->MAX_UINT32)
+        {
+            $base = LOW32($base);
+            $s->register->{TEST} |= RPN::Constant->TEST_FLAG_OVFL;
+        }
+        $s->register->{R0} = $base;
+    },
+)

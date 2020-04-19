@@ -21,13 +21,14 @@ use RPN; # import the machine
 
 # commands queue
 my @command = @ARGV;
+push(@command, RPN::Constant->PROMPT_ENABLE) unless @command;
 
 # config settings
 my %config =
 (
 	# storage
-	calculator  => q[./data/Calculator.rpn],
-	computer    => q[./data/Computer.rpn],
+	calculator  => RPN::Constant->DEF_CALC_FILE,
+	computer    => RPN::Constant->DEF_COMP_FILE,
 	# reverse file input? (mem/rpn mode)
 	reverse     => RPN::Constant->DEF_AUTO_REVERSE,
 	# you want to talk to me?
